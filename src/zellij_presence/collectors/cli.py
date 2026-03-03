@@ -104,7 +104,9 @@ class CLICollector:
         for line in lines:
             if ACTIVE_HINT_RE.search(line):
                 return self._normalize_tab_name(line)
-        return self._normalize_tab_name(lines[0])
+        if len(lines) == 1:
+            return self._normalize_tab_name(lines[0])
+        return None
 
     def _dump_layout(self) -> str | None:
         return self._run(["action", "dump-layout"])
@@ -123,40 +125,73 @@ class CLICollector:
         if session_match:
             parsed.session_name = session_match.group(1)
 
-        active_tab_match = re.search(
-            r'tab\b[^\n]*name="([^"]+)"[^\n]*(?:active=true|focus=true)', layout
-        )
-        fallback_tab_match = re.search(r'tab\b[^\n]*name="([^"]+)"', layout)
-        if active_tab_match:
-            parsed.tab_name = active_tab_match.group(1)
-        elif fallback_tab_match:
-            parsed.tab_name = fallback_tab_match.group(1)
+        active_tab_from_flag: str | None = None
+        active_tab_from_focus: str | None = None
+        fallback_tab: str | None = None
 
-        active_pane_match = re.search(
-            r'pane\b[^\n]*name="([^"]+)"[^\n]*(?:active=true|focus=true)', layout
-        )
-        fallback_pane_match = re.search(r'pane\b[^\n]*name="([^"]+)"', layout)
-        if active_pane_match:
-            parsed.pane_title = active_pane_match.group(1)
-        elif fallback_pane_match:
-            parsed.pane_title = fallback_pane_match.group(1)
+        active_pane_title: str | None = None
+        active_command: str | None = None
+        active_cwd: str | None = None
 
-        active_command_match = re.search(
-            r'pane\b[^\n]*command="([^"]+)"[^\n]*(?:active=true|focus=true)', layout
-        )
-        fallback_command_match = re.search(r'pane\b[^\n]*command="([^"]+)"', layout)
-        if active_command_match:
-            parsed.command = active_command_match.group(1)
-        elif fallback_command_match:
-            parsed.command = fallback_command_match.group(1)
+        fallback_pane_title: str | None = None
+        fallback_command: str | None = None
+        fallback_cwd: str | None = None
 
-        active_cwd_match = re.search(
-            r'pane\b[^\n]*cwd="([^"]+)"[^\n]*(?:active=true|focus=true)', layout
-        )
-        fallback_cwd_match = re.search(r'pane\b[^\n]*cwd="([^"]+)"', layout)
-        if active_cwd_match:
-            parsed.cwd = active_cwd_match.group(1)
-        elif fallback_cwd_match:
-            parsed.cwd = fallback_cwd_match.group(1)
+        brace_depth = 0
+        current_tab_name: str | None = None
+        current_tab_depth: int | None = None
 
+        for line in layout.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                brace_depth += line.count("{") - line.count("}")
+                continue
+
+            tab_name = self._extract_attr(stripped, "name") if "tab" in stripped else None
+            if tab_name and stripped.startswith("tab"):
+                current_tab_name = tab_name
+                current_tab_depth = brace_depth + max(1, line.count("{"))
+                if fallback_tab is None:
+                    fallback_tab = tab_name
+                if "active=true" in stripped or "focus=true" in stripped:
+                    active_tab_from_flag = tab_name
+
+            if stripped.startswith("pane"):
+                pane_title = self._extract_attr(stripped, "name")
+                command = self._extract_attr(stripped, "command")
+                cwd = self._extract_attr(stripped, "cwd")
+                pane_is_active = "active=true" in stripped or "focus=true" in stripped
+
+                if fallback_pane_title is None and pane_title:
+                    fallback_pane_title = pane_title
+                if fallback_command is None and command:
+                    fallback_command = command
+                if fallback_cwd is None and cwd:
+                    fallback_cwd = cwd
+
+                if pane_is_active:
+                    if current_tab_name:
+                        active_tab_from_focus = current_tab_name
+                    if pane_title:
+                        active_pane_title = pane_title
+                    if command:
+                        active_command = command
+                    if cwd:
+                        active_cwd = cwd
+
+            brace_depth += line.count("{") - line.count("}")
+            if current_tab_depth is not None and brace_depth < current_tab_depth:
+                current_tab_name = None
+                current_tab_depth = None
+
+        parsed.tab_name = active_tab_from_focus or active_tab_from_flag or fallback_tab
+        parsed.pane_title = active_pane_title or fallback_pane_title
+        parsed.command = active_command or fallback_command
+        parsed.cwd = active_cwd or fallback_cwd
         return parsed
+
+    def _extract_attr(self, line: str, key: str) -> str | None:
+        match = re.search(rf'{re.escape(key)}="([^"]+)"', line)
+        if match:
+            return match.group(1)
+        return None

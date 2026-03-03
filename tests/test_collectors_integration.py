@@ -100,6 +100,31 @@ class CollectorIntegrationTests(unittest.TestCase):
             self.assertEqual(raw.tab_name, "fallback-tab")
             self.assertEqual(raw.source, "zellij-cli")
 
+    def test_layout_focus_pane_selects_active_tab_without_tab_flag(self) -> None:
+        collector = FixtureCLICollector({})
+        layout = """
+session name="dev-session" {
+    tab name="Tab #1" {
+        pane name="bash" command="bash" cwd="/tmp/a"
+    }
+    tab name="Tab #2" {
+        pane name="nvim main.py" command="nvim main.py" cwd="/tmp/b" focus=true
+    }
+}
+"""
+        parsed = collector._parse_layout(layout)
+        self.assertEqual(parsed.tab_name, "Tab #2")
+        self.assertEqual(parsed.pane_title, "nvim main.py")
+        self.assertEqual(parsed.command, "nvim main.py")
+        self.assertEqual(parsed.cwd, "/tmp/b")
+
+    def test_query_tab_names_without_active_hint_returns_none(self) -> None:
+        fixtures = {
+            ("action", "query-tab-names"): "1: Tab #1\n2: Tab #2\n",
+        }
+        collector = FixtureCLICollector(fixtures)
+        self.assertIsNone(collector._query_tab_name())
+
 
 if __name__ == "__main__":
     unittest.main()
