@@ -27,6 +27,7 @@ class DiscordPublisherTests(unittest.TestCase):
             cwd="/tmp/project",
             status="editing",
             start_timestamp=12345,
+            workspace_folder="project",
         )
 
         payload = publisher._build_set_activity_payload(presence)
@@ -35,7 +36,7 @@ class DiscordPublisherTests(unittest.TestCase):
         assert isinstance(args, dict)
         activity = args["activity"]
         assert isinstance(activity, dict)
-        self.assertEqual(activity["details"], "dev / editor")
+        self.assertEqual(activity["details"], "dev / editor [project]")
         self.assertIn("editing", activity["state"])
         self.assertIn("+0/-0", activity["state"])
         self.assertEqual(activity["timestamps"]["start"], 12345)

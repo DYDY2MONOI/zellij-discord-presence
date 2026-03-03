@@ -49,14 +49,14 @@ done
 echo "==> Initializing config at ${CONFIG_PATH}"
 PYTHONPATH=src python3 -m zellij_presence.cli config init --path "${CONFIG_PATH}" --force
 
-echo "==> Forcing collector.strategy = \"cli\""
+echo "==> Forcing collector.strategy = \"auto\" (plugin first, CLI fallback)"
 if grep -q '^strategy = "' "${CONFIG_PATH}"; then
-  sed -i 's/^strategy = ".*"/strategy = "cli"/' "${CONFIG_PATH}"
+  sed -i 's/^strategy = ".*"/strategy = "auto"/' "${CONFIG_PATH}"
 else
   cat >>"${CONFIG_PATH}" <<'EOF'
 
 [collector]
-strategy = "cli"
+strategy = "auto"
 EOF
 fi
 

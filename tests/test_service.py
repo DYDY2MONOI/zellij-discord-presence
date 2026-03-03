@@ -56,6 +56,7 @@ class PresenceServiceTests(unittest.TestCase):
         first = service.collect_once()
         self.assertEqual(first.status, "coding")
         self.assertEqual(first.command, "python app.py")
+        self.assertEqual(first.workspace_folder, "project")
 
         clock.advance(4.0)
         second = service.collect_once()

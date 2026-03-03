@@ -56,6 +56,33 @@ class CollectorIntegrationTests(unittest.TestCase):
         self.assertEqual(raw.cwd, "/home/alice/project")
         self.assertEqual(raw.source, "zellij-cli")
 
+    def test_cli_collector_layout_cwd_overrides_launch_pwd(self) -> None:
+        fixtures = {
+            ("action", "query-tab-names"): "1: editor (active)\n",
+            ("action", "dump-layout"): (
+                'session name="beta-session" {\n'
+                '  tab name="editor" active=true {\n'
+                '    pane name="nvim src/main.py" command="nvim src/main.py" cwd="/home/alice/project" focus=true\n'
+                "  }\n"
+                "}\n"
+            ),
+        }
+        collector = FixtureCLICollector(fixtures)
+
+        with patch.dict(
+            "os.environ",
+            {
+                "ZELLIJ_SESSION_NAME": "beta-session",
+                "ZELLIJ_PANE_TITLE": "old-pane-title",
+                "PWD": "/mnt/c/Users/foura/zelij",
+            },
+            clear=False,
+        ):
+            raw = collector.collect()
+
+        self.assertEqual(raw.cwd, "/home/alice/project")
+        self.assertEqual(raw.pane_title, "nvim src/main.py")
+
     def test_plugin_collector_reads_snapshot_fixture(self) -> None:
         fixture_payload = json.loads((FIXTURES_DIR / "plugin_snapshot.json").read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -124,6 +151,19 @@ session name="dev-session" {
         }
         collector = FixtureCLICollector(fixtures)
         self.assertIsNone(collector._query_tab_name())
+
+    def test_layout_uses_live_cwd_from_pane_pid_when_available(self) -> None:
+        collector = FixtureCLICollector({})
+        layout = """
+session name="dev-session" {
+    tab name="editor" active=true {
+        pane name="shell" command="zsh" cwd="/old/path" focus=true pid=4242
+    }
+}
+"""
+        with patch("zellij_presence.collectors.cli.os.readlink", return_value="/home/alice/new-path"):
+            parsed = collector._parse_layout(layout)
+        self.assertEqual(parsed.cwd, "/home/alice/new-path")
 
 
 if __name__ == "__main__":

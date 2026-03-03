@@ -23,6 +23,7 @@ class PresenceSanitizer:
         sanitized.session_name = self._redact_text(sanitized.session_name)
         sanitized.tab_name = self._redact_text(sanitized.tab_name)
         sanitized.pane_title = self._redact_text(sanitized.pane_title)
+        sanitized.workspace_folder = self._redact_text(sanitized.workspace_folder)
 
         if self.config.safe_mode:
             sanitized.pane_title = None

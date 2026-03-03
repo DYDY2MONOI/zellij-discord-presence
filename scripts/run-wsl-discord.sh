@@ -135,7 +135,7 @@ safe_mode = true
 poll_interval_seconds = 0.5
 
 [collector]
-strategy = "cli"
+strategy = "auto"
 plugin_state_file = "/tmp/zellij-presence-plugin-state.json"
 plugin_max_age_seconds = 2.0
 

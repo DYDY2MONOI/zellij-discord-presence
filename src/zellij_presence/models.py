@@ -25,6 +25,7 @@ class Presence:
     cwd: str | None
     status: str
     start_timestamp: int
+    workspace_folder: str | None = None
     session_lines_added: int = 0
     session_lines_deleted: int = 0
 

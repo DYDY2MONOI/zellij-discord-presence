@@ -40,9 +40,11 @@ class CLICollector:
         now = int(time.time())
         session_name = os.getenv("ZELLIJ_SESSION_NAME")
         tab_name = None
-        pane_title = os.getenv("ZELLIJ_PANE_TITLE")
+        env_pane_title = os.getenv("ZELLIJ_PANE_TITLE")
         command = None
-        cwd = os.getenv("PWD") if session_name else None
+        env_cwd = os.getenv("PWD") if session_name else None
+        pane_title = env_pane_title
+        cwd = env_cwd
 
         if not session_name:
             session_name = self._latest_session_name()
@@ -53,9 +55,9 @@ class CLICollector:
             parsed_layout = self._parse_layout(layout)
             session_name = session_name or parsed_layout.session_name
             tab_name = tab_name or parsed_layout.tab_name
-            pane_title = pane_title or parsed_layout.pane_title
+            pane_title = parsed_layout.pane_title or env_pane_title
             command = parsed_layout.command
-            cwd = cwd or parsed_layout.cwd
+            cwd = parsed_layout.cwd or env_cwd
 
         return RawPresence(
             session_name=session_name,
@@ -132,10 +134,12 @@ class CLICollector:
         active_pane_title: str | None = None
         active_command: str | None = None
         active_cwd: str | None = None
+        active_pid: int | None = None
 
         fallback_pane_title: str | None = None
         fallback_command: str | None = None
         fallback_cwd: str | None = None
+        fallback_pid: int | None = None
 
         brace_depth = 0
         current_tab_name: str | None = None
@@ -160,6 +164,7 @@ class CLICollector:
                 pane_title = self._extract_attr(stripped, "name")
                 command = self._extract_attr(stripped, "command")
                 cwd = self._extract_attr(stripped, "cwd")
+                pid = self._extract_pid(stripped)
                 pane_is_active = "active=true" in stripped or "focus=true" in stripped
 
                 if fallback_pane_title is None and pane_title:
@@ -168,6 +173,8 @@ class CLICollector:
                     fallback_command = command
                 if fallback_cwd is None and cwd:
                     fallback_cwd = cwd
+                if fallback_pid is None and pid is not None:
+                    fallback_pid = pid
 
                 if pane_is_active:
                     if current_tab_name:
@@ -178,6 +185,8 @@ class CLICollector:
                         active_command = command
                     if cwd:
                         active_cwd = cwd
+                    if pid is not None:
+                        active_pid = pid
 
             brace_depth += line.count("{") - line.count("}")
             if current_tab_depth is not None and brace_depth < current_tab_depth:
@@ -188,6 +197,12 @@ class CLICollector:
         parsed.pane_title = active_pane_title or fallback_pane_title
         parsed.command = active_command or fallback_command
         parsed.cwd = active_cwd or fallback_cwd
+
+        selected_pid = active_pid or fallback_pid
+        if selected_pid is not None:
+            live_cwd = self._cwd_from_pid(selected_pid)
+            if live_cwd:
+                parsed.cwd = live_cwd
         return parsed
 
     def _extract_attr(self, line: str, key: str) -> str | None:
@@ -195,3 +210,18 @@ class CLICollector:
         if match:
             return match.group(1)
         return None
+
+    def _extract_pid(self, line: str) -> int | None:
+        match = re.search(r'\bpid="?(\d+)"?', line)
+        if not match:
+            return None
+        try:
+            return int(match.group(1))
+        except ValueError:
+            return None
+
+    def _cwd_from_pid(self, pid: int) -> str | None:
+        try:
+            return os.readlink(f"/proc/{pid}/cwd")
+        except OSError:
+            return None

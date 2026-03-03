@@ -127,6 +127,8 @@ class DiscordRPCPublisher:
 
     def _build_set_activity_payload(self, presence: Presence) -> dict[str, object]:
         details = f"{presence.session_name} / {presence.tab_name}"
+        if presence.workspace_folder:
+            details = f"{details} [{presence.workspace_folder}]"
         stats_suffix = f" (+{presence.session_lines_added}/-{presence.session_lines_deleted})"
         state = f"{presence.status}{stats_suffix}"
         if presence.command:

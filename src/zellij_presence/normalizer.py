@@ -31,7 +31,16 @@ class PresenceNormalizer:
             cwd=raw.cwd,
             status=self._derive_status(raw.command, raw.pane_title),
             start_timestamp=self._session_starts[session_name],
+            workspace_folder=self._workspace_folder(raw.cwd),
         )
+
+    def _workspace_folder(self, cwd: str | None) -> str | None:
+        if not cwd:
+            return None
+        normalized = cwd.rstrip("/")
+        if not normalized:
+            return None
+        return os.path.basename(normalized) or None
 
     def _derive_status(self, command: str | None, pane_title: str | None) -> str:
         verb = self._leading_executable(command)
