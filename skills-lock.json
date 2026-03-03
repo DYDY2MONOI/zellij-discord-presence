@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "repo-explorer": {
+      "source": "oschina/gitee-agent-skills",
+      "sourceType": "github",
+      "computedHash": "3f65ffe1d10645f7f2c36da6cb2b6f5426c778e3c6f21d95818723fc8e590e55"
+    }
+  }
+}
