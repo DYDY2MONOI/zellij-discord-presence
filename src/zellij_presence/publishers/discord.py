@@ -13,6 +13,8 @@ from zellij_presence.models import Presence
 
 OPCODE_HANDSHAKE = 0
 OPCODE_FRAME = 1
+RECONNECT_BACKOFF_MIN_SECONDS = 0.5
+RECONNECT_BACKOFF_MAX_SECONDS = 8.0
 
 
 class DiscordRPCPublisher:
@@ -26,23 +28,33 @@ class DiscordRPCPublisher:
         self.socket_path = socket_path.strip() if socket_path else None
         self.logger = logger or logging.getLogger(__name__)
         self._socket: socket.socket | None = None
-        self._disabled = False
+        self._next_connect_at = 0.0
+        self._reconnect_backoff_seconds = RECONNECT_BACKOFF_MIN_SECONDS
 
     def publish(self, presence: Presence) -> None:
-        if self._disabled or not self.client_id:
+        if not self.client_id:
             return
+        now = time.monotonic()
         try:
             if self._socket is None:
+                if now < self._next_connect_at:
+                    return
                 self._connect_and_handshake()
+                self._on_connected()
             payload = self._build_set_activity_payload(presence)
             self._write_frame(OPCODE_FRAME, payload)
         except Exception:
-            self.logger.debug("Discord RPC publish failed; disabling publisher.", exc_info=True)
-            self.close()
-            self._disabled = True
+            self.logger.debug("Discord RPC publish failed; will retry with backoff.", exc_info=True)
+            self.close(clear_activity=False)
+            self._schedule_reconnect(now)
 
-    def close(self) -> None:
+    def close(self, clear_activity: bool = True) -> None:
         if self._socket:
+            if clear_activity:
+                try:
+                    self._write_frame(OPCODE_FRAME, self._build_clear_activity_payload())
+                except Exception:
+                    self.logger.debug("Discord RPC clear activity failed during close.", exc_info=True)
             try:
                 self._socket.close()
             except OSError:
@@ -63,6 +75,17 @@ class DiscordRPCPublisher:
                 "v": 1,
                 "client_id": self.client_id,
             },
+        )
+
+    def _on_connected(self) -> None:
+        self._next_connect_at = 0.0
+        self._reconnect_backoff_seconds = RECONNECT_BACKOFF_MIN_SECONDS
+
+    def _schedule_reconnect(self, now: float) -> None:
+        self._next_connect_at = now + self._reconnect_backoff_seconds
+        self._reconnect_backoff_seconds = min(
+            RECONNECT_BACKOFF_MAX_SECONDS,
+            self._reconnect_backoff_seconds * 2,
         )
 
     def _resolve_socket_path(self) -> str | None:
@@ -116,6 +139,17 @@ class DiscordRPCPublisher:
             "args": {
                 "pid": os.getpid(),
                 "activity": activity,
+            },
+            "nonce": str(uuid.uuid4()),
+            "ts": int(time.time()),
+        }
+
+    def _build_clear_activity_payload(self) -> dict[str, object]:
+        return {
+            "cmd": "SET_ACTIVITY",
+            "args": {
+                "pid": os.getpid(),
+                "activity": None,
             },
             "nonce": str(uuid.uuid4()),
             "ts": int(time.time()),

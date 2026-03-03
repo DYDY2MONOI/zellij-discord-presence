@@ -118,10 +118,15 @@ PYTHONPATH=src python3 -m zellij_presence.cli config init --path /tmp/zellij-pre
 ## Config Overview
 Default generated config includes:
 - `safe_mode = true` by default
+- `idle_timeout_seconds = 0.0` (set >0 to publish `idle` when unchanged for that many seconds)
 - `collector.strategy = "auto" | "plugin" | "cli"`
 - `[publish]` JSON file + optional HTTP
 - `[publish.discord]` optional Rich Presence
 - `[filters]` allowlist/denylist/redaction regex
+
+Discord publisher behavior:
+- clears activity when the service shuts down
+- reconnects automatically with exponential backoff if Discord IPC drops
 
 ## Data Safety Defaults
 - `safe_mode=true` means only session + tab are published

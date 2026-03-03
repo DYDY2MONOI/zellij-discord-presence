@@ -17,6 +17,7 @@ class ConfigTests(unittest.TestCase):
             raw = path.read_text(encoding="utf-8")
             parsed = tomllib.loads(raw)
             self.assertTrue(parsed["safe_mode"])
+            self.assertIn("idle_timeout_seconds", parsed)
             self.assertIn("collector", parsed)
             self.assertIn("publish", parsed)
             self.assertIn("filters", parsed)

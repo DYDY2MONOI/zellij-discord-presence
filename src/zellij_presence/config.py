@@ -62,6 +62,7 @@ class CollectorConfig:
 class PresenceConfig:
     safe_mode: bool = True
     poll_interval_seconds: float = 0.5
+    idle_timeout_seconds: float = 0.0
     collector: CollectorConfig = field(default_factory=CollectorConfig)
     publish: PublishConfig = field(default_factory=PublishConfig)
     filters: FilterConfig = field(default_factory=FilterConfig)
@@ -73,6 +74,11 @@ def _update_from_dict(config: PresenceConfig, data: dict[str, Any]) -> None:
     if "poll_interval_seconds" in data:
         try:
             config.poll_interval_seconds = max(0.1, float(data["poll_interval_seconds"]))
+        except (TypeError, ValueError):
+            pass
+    if "idle_timeout_seconds" in data:
+        try:
+            config.idle_timeout_seconds = max(0.0, float(data["idle_timeout_seconds"]))
         except (TypeError, ValueError):
             pass
 
@@ -159,6 +165,13 @@ def _update_from_env(config: PresenceConfig) -> None:
             config.poll_interval_seconds = max(0.1, float(interval))
         except ValueError:
             pass
+
+    idle_timeout = os.getenv("ZELLIJ_PRESENCE_IDLE_TIMEOUT_SECONDS")
+    if idle_timeout:
+        try:
+            config.idle_timeout_seconds = max(0.0, float(idle_timeout))
+        except ValueError:
+            pass
     collector_strategy = os.getenv("ZELLIJ_PRESENCE_COLLECTOR_STRATEGY")
     if collector_strategy:
         strategy = collector_strategy.strip().lower()
@@ -191,6 +204,7 @@ def render_default_config() -> str:
         f"""\
         safe_mode = true
         poll_interval_seconds = 0.5
+        idle_timeout_seconds = 0.0
 
         [collector]
         strategy = "auto"

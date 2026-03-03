@@ -103,6 +103,7 @@ def _build_service(
         sanitizer=PresenceSanitizer(config),
         publishers=publishers,
         dry_run=dry_run,
+        idle_timeout_seconds=config.idle_timeout_seconds,
         logger=logger,
     )
     return service, closeables
