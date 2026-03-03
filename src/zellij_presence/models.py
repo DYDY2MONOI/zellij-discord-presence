@@ -25,6 +25,8 @@ class Presence:
     cwd: str | None
     status: str
     start_timestamp: int
+    session_lines_added: int = 0
+    session_lines_deleted: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

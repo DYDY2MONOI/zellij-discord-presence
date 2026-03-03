@@ -37,6 +37,7 @@ class DiscordPublisherTests(unittest.TestCase):
         assert isinstance(activity, dict)
         self.assertEqual(activity["details"], "dev / editor")
         self.assertIn("editing", activity["state"])
+        self.assertIn("+0/-0", activity["state"])
         self.assertEqual(activity["timestamps"]["start"], 12345)
 
     def test_close_sends_clear_activity_when_socket_open(self) -> None:
