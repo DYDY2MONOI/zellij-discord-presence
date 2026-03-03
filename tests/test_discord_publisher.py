@@ -57,9 +57,31 @@ class DiscordPublisherTests(unittest.TestCase):
         self.assertEqual(written[0][1]["cmd"], "SET_ACTIVITY")
         args = written[0][1]["args"]
         assert isinstance(args, dict)
-        self.assertIsNone(args["activity"])
+        self.assertNotIn("activity", args)
         self.assertTrue(dummy_socket.closed)
         self.assertIsNone(publisher._socket)
+
+    def test_close_attempts_reconnect_to_clear_when_socket_missing(self) -> None:
+        publisher = DiscordRPCPublisher(client_id="1234567890")
+        dummy_socket = _DummySocket()
+        written: list[tuple[int, dict[str, object]]] = []
+
+        def fake_connect_and_handshake() -> None:
+            publisher._socket = dummy_socket  # type: ignore[assignment]
+
+        def fake_write_frame(opcode: int, payload: dict[str, object]) -> None:
+            written.append((opcode, payload))
+
+        publisher._connect_and_handshake = fake_connect_and_handshake  # type: ignore[method-assign]
+        publisher._write_frame = fake_write_frame  # type: ignore[method-assign]
+
+        publisher.close()
+
+        self.assertEqual(len(written), 1)
+        args = written[0][1]["args"]
+        assert isinstance(args, dict)
+        self.assertNotIn("activity", args)
+        self.assertTrue(dummy_socket.closed)
 
     def test_publish_retries_with_backoff_after_connection_failures(self) -> None:
         publisher = DiscordRPCPublisher(client_id="1234567890")

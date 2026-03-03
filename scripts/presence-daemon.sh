@@ -42,8 +42,26 @@ status() {
   fi
 }
 
+cleanup_stale_processes() {
+  local patterns=(
+    "python3 -m zellij_presence.cli run"
+    "python -m zellij_presence.cli run"
+    "scripts/run-wsl-discord.sh"
+    "npiperelay.exe -ep -s //./pipe/discord-ipc-"
+  )
+  local pattern
+  for pattern in "${patterns[@]}"; do
+    pkill -TERM -f "${pattern}" >/dev/null 2>&1 || true
+  done
+  sleep 0.4
+  for pattern in "${patterns[@]}"; do
+    pkill -KILL -f "${pattern}" >/dev/null 2>&1 || true
+  done
+}
+
 stop() {
   if ! is_running; then
+    cleanup_stale_processes
     echo "not running"
     rm -f "${PID_FILE}"
     return 0
@@ -53,8 +71,9 @@ stop() {
   pid="$(cat "${PID_FILE}")"
   kill "${pid}" >/dev/null 2>&1 || true
 
-  for _ in $(seq 1 25); do
+  for _ in $(seq 1 40); do
     if ! kill -0 "${pid}" >/dev/null 2>&1; then
+      cleanup_stale_processes
       rm -f "${PID_FILE}"
       echo "stopped"
       return 0
@@ -62,7 +81,9 @@ stop() {
     sleep 0.2
   done
 
+  pkill -KILL -P "${pid}" >/dev/null 2>&1 || true
   kill -9 "${pid}" >/dev/null 2>&1 || true
+  cleanup_stale_processes
   rm -f "${PID_FILE}"
   echo "stopped (forced)"
 }
@@ -88,6 +109,7 @@ start() {
     echo "already running (pid=$(cat "${PID_FILE}"))"
     return 0
   fi
+  cleanup_stale_processes
 
   local cmd=()
   case "${mode}" in

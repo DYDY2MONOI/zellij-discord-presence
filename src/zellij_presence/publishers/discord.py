@@ -49,6 +49,13 @@ class DiscordRPCPublisher:
             self._schedule_reconnect(now)
 
     def close(self, clear_activity: bool = True) -> None:
+        if clear_activity and self._socket is None and self.client_id:
+            # Best-effort reconnect so we can clear a previously published activity.
+            try:
+                self._connect_and_handshake()
+            except Exception:
+                self.logger.debug("Discord RPC reconnect for clear failed during close.", exc_info=True)
+
         if self._socket:
             if clear_activity:
                 try:
@@ -149,7 +156,6 @@ class DiscordRPCPublisher:
             "cmd": "SET_ACTIVITY",
             "args": {
                 "pid": os.getpid(),
-                "activity": None,
             },
             "nonce": str(uuid.uuid4()),
             "ts": int(time.time()),

@@ -183,6 +183,7 @@ start_relay() {
 }
 
 RELAY_PID=""
+SERVICE_PID=""
 if [[ "${PIPE_INDEX}" == "auto" ]]; then
   connected=0
   for idx in 0 1 2 3 4 5 6 7 8 9; do
@@ -208,13 +209,26 @@ else
 fi
 
 cleanup() {
+  if [[ -n "${SERVICE_PID}" ]]; then
+    if kill -0 "${SERVICE_PID}" >/dev/null 2>&1; then
+      kill "${SERVICE_PID}" >/dev/null 2>&1 || true
+      wait "${SERVICE_PID}" >/dev/null 2>&1 || true
+    fi
+  fi
+  # Best-effort explicit clear while relay is still alive.
+  ZP_CLEAR_CLIENT_ID="${CLIENT_ID}" ZP_CLEAR_SOCKET_PATH="${SOCKET_PATH}" \
+    PYTHONPATH=src python3 -c 'import os; from zellij_presence.publishers.discord import DiscordRPCPublisher as D; cid=os.getenv("ZP_CLEAR_CLIENT_ID","").strip(); sp=os.getenv("ZP_CLEAR_SOCKET_PATH","").strip(); (D(cid, sp).close() if cid and sp else None)' \
+    >/dev/null 2>&1 || true
+  sleep 0.2
   if [[ -n "${RELAY_PID}" ]]; then
     kill "${RELAY_PID}" >/dev/null 2>&1 || true
     wait "${RELAY_PID}" >/dev/null 2>&1 || true
   fi
   rm -f "${SOCKET_PATH}"
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 echo "==> Starting zellij-presence with Discord enabled"
-env PYTHONPATH=src python3 -m zellij_presence.cli run --verbose --config "${CONFIG_PATH}"
+env PYTHONPATH=src python3 -m zellij_presence.cli run --verbose --config "${CONFIG_PATH}" &
+SERVICE_PID=$!
+wait "${SERVICE_PID}"
