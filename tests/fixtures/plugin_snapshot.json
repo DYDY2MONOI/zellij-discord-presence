@@ -1,0 +1,8 @@
+{
+  "session_name": "plugin-session",
+  "tab_name": "plugin-tab",
+  "pane_title": "nvim src/lib.rs",
+  "command": "nvim src/lib.rs",
+  "cwd": "/home/alice/plugin-project",
+  "collected_at": 32503680000
+}

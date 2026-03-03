@@ -1,0 +1,8 @@
+session name="beta-session" {
+    tab name="logs" {
+        pane name="tail -f app.log" command="tail -f app.log" cwd="/home/alice/project"
+    }
+    tab name="editor" active=true {
+        pane name="nvim src/main.py" command="nvim src/main.py" cwd="/home/alice/project" focus=true
+    }
+}
